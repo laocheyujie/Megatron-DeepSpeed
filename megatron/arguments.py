@@ -58,6 +58,7 @@ def parse_args(extra_args_provider=None, defaults={},
     if extra_args_provider is not None:
         parser = extra_args_provider(parser)
 
+    # DeepSpeed arguments.
     parser = deepspeed.add_config_arguments(parser)
 
     # Parse.
@@ -72,6 +73,7 @@ def parse_args(extra_args_provider=None, defaults={},
     # Tensor model parallel size.
     args.tensor_model_parallel_size = min(
         args.tensor_model_parallel_size, args.world_size)
+    # 关系1：world_size (总显卡数) 必须是 tensor_model_parallel_size 的倍数
     assert args.world_size % args.tensor_model_parallel_size == 0, 'world size'\
         ' ({}) is not divisible by tensor model parallel size ({})'.format(
             args.world_size, args.tensor_model_parallel_size)
@@ -80,12 +82,16 @@ def parse_args(extra_args_provider=None, defaults={},
         args.pipeline_model_parallel_size,
         (args.world_size // args.tensor_model_parallel_size))
     # Checks.
+    # 关系2：model_parallel_size = pipeline_model_parallel_size * tensor_model_parallel_size
     model_parallel_size = args.pipeline_model_parallel_size * \
                           args.tensor_model_parallel_size
+    # 关系3：world_size (总显卡数) 必须是 model_parallel_size 的倍数
     assert args.world_size % model_parallel_size == 0, 'world size is not'\
         ' divisible by tensor parallel size ({}) times pipeline parallel ' \
         'size ({})'.format(args.world_size, args.tensor_model_parallel_size,
                            args.pipeline_model_parallel_size)
+    # Data parallel size.
+    # 关系4：data_parallel_size = world_size // model_parallel_size
     args.data_parallel_size = args.world_size // model_parallel_size
     if args.rank == 0:
         print('using world size: {}, data-parallel-size: {}, '
@@ -150,6 +156,7 @@ def parse_args(extra_args_provider=None, defaults={},
     assert args.micro_batch_size is not None
     assert args.micro_batch_size > 0
     if args.global_batch_size is None:
+        # 关系5：global_batch_size = micro_batch_size * data_parallel_size
         args.global_batch_size = args.micro_batch_size * args.data_parallel_size
         if args.rank == 0:
             print('setting global batch size to {}'.format(
@@ -735,7 +742,7 @@ def _add_distributed_args(parser):
     group.add_argument('--no-scatter-gather-tensors-in-pipeline', action='store_false',
                        help='Use scatter/gather to optimize communication of tensors in pipeline',
                        dest='scatter_gather_tensors_in_pipeline')
-    group.add_argument('--local_rank', type=int, default=None,
+    group.add_argument('--local-rank', '--local_rank', type=int, default=None,
                        help='local rank passed from distributed launcher.')
     group.add_argument('--lazy-mpu-init', type=bool, required=False,
                        help='If set to True, initialize_megatron() '

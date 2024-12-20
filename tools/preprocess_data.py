@@ -95,18 +95,21 @@ class Encoder(object):
 def get_args():
     parser = argparse.ArgumentParser()
     group = parser.add_argument_group(title='input data')
+    # 训练数据集 json 的路径
     group.add_argument('--input', type=str,
                        help='Path to input JSON')
     group.add_argument('--datasets', nargs='+', default=None,
                        help='Paths to one or more input datasets to merge')
     group.add_argument('--json-keys', nargs='+', default=['text'],
                        help='space separate listed of keys to extract from json')
+    # 是否将文档拆分成句子，BERT 最好是拆分
     group.add_argument('--split-sentences', action='store_true',
                        help='Split documents into sentences.')
     group.add_argument('--keep-newlines', action='store_true',
                        help='Keep newlines between sentences when splitting.')
 
     group = parser.add_argument_group(title='tokenizer')
+    # tokenizer类型：GPT: GPT2BPETokenizer
     group.add_argument('--tokenizer-type', type=str, required=True,
                        choices=['BertWordPieceLowerCase','BertWordPieceCase',
                                 'GPT2BPETokenizer', 'PretrainedFromHF'],
@@ -119,6 +122,7 @@ def get_args():
                        help='Append an <eod> token to the end of a document.')
     group.add_argument("--tokenizer-name-or-path", type=str, default=None,
                        help="Name or path of the huggingface tokenizer.")
+    # 某些分布式训练框架要求词汇表大小能被某个数整除
     group.add_argument('--make-vocab-size-divisible-by', type=int, default=128,
                        help='Pad the vocab size to be divisible by this value.'
                             'This is added for computational efficieny reasons.')
@@ -165,7 +169,22 @@ def main():
 
     encoder = Encoder(args)
     tokenizer = build_tokenizer(args)
+    # 在每个子进程中执行初始化，初始化 Encoder.tokenizer 和 Encoder.splitter 用于 encoder.encode 使用
+    '''
+    在多进程环境下，主进程和子进程有独立的内存空间。
+    即使在主进程中创建了 tokenizer 对象，它也不会自动被共享到每个子进程中。
+    子进程的内存是隔离的，它们无法访问主进程的变量或对象。
+    即使在主进程中正确初始化了 tokenizer，子进程仍然无法使用它，除非显式地通过 initializer 在每个子进程中进行初始化。
+    '''
     pool = multiprocessing.Pool(args.workers, initializer=encoder.initializer)
+    '''
+    imap 会按顺序逐一传递给定的输入数据（fin 中的每一行）给 encoder.encode 函数处理
+    每次会将 25 行数据传递给一个工作进程进行处理
+    pool.imap 创建一个 惰性迭代器
+    - 不会立即执行 encoder.encode 方法，而是会创建一个迭代器，延迟执行实际的编码工作
+    - pool.imap() 会返回一个迭代器，该迭代器会异步地将任务（即 encoder.encode）分发给 multiprocessing.Pool 中的多个子进程。
+    - 当迭代 encoded_docs 时，它会依次将 fin 文件中的数据行（每一行传递给 encoder.encode）传递给池中的工作进程，执行编码操作。
+    '''
     encoded_docs = pool.imap(encoder.encode, fin, 25)
     #encoded_docs = map(encoder.encode, fin)
 
@@ -183,8 +202,8 @@ def main():
                                                     key, level)
         output_idx_files[key] = "{}_{}_{}.idx".format(args.output_prefix,
                                                     key, level)
-        builders[key] = indexed_dataset.make_builder(output_bin_files[key],
-                                                     impl=args.dataset_impl,
+        builders[key] = indexed_dataset.make_builder(output_bin_files[key],  # 'meg-gpt2_text_document.bin'
+                                                     impl=args.dataset_impl,  # 'mmap'
                                                      dtype=best_fitting_dtype(tokenizer.vocab_size))
 
     startup_end = time.time()
@@ -193,13 +212,16 @@ def main():
     print("Time to startup:", startup_end - startup_start)
 
     for i, (doc, bytes_processed) in enumerate(encoded_docs, start=1):
+        # 正式多进程处理数据，并把 tokenize 后的 np.array 数据写入到文件中
+        # 文件每行是一个 np.array，包含一个文档的 token id
         total_bytes_processed += bytes_processed
         for key, sentences in doc.items():
             if len(sentences) == 0:
                 continue
             for sentence in sentences:
+                # add_item 就是做了一个写入操作
                 builders[key].add_item(torch.IntTensor(sentence))
-            builders[key].end_document()
+            builders[key].end_document()  # 把 jsonl 数据条数记录到 idx 文件里，[0, jsonl数据条数]
         if i % args.log_interval == 0:
             current = time.time()
             elapsed = current - proc_start
@@ -209,7 +231,33 @@ def main():
                 file=sys.stderr)
 
     for key in args.json_keys:
+        # 保存数据索引，每一行是一个文档的长度
         builders[key].finalize(output_idx_files[key])
 
 if __name__ == '__main__':
+    '''
+    python3 tools/preprocess_data.py \
+        --input oscar-1GB.jsonl \
+        --output-prefix meg-gpt2 \
+        --vocab gpt2-vocab.json \
+        --dataset-impl mmap \
+        --tokenizer-type GPT2BPETokenizer \
+        --merge-file gpt2-merges.txt \
+        --append-eod \
+        --workers 8
+
+    '''
+    # import sys
+    # sys.argv = [
+    #     'preprocess_data.py', 
+    #     '--input', '/data/cheyujie/github/datasets/oscar-1GB.jsonl', 
+    #     '--output-prefix', 'meg-gpt2',
+    #     '--vocab', '/data/cheyujie/github/datasets/gpt2-vocab.json', 
+    #     '--dataset-impl', 'mmap',
+    #     '--tokenizer-type', 'GPT2BPETokenizer',
+    #     '--merge-file', '/data/cheyujie/github/datasets/gpt2-merges.txt',
+    #     '--append-eod',
+    #     '--workers', '8'
+    # ]
+
     main()

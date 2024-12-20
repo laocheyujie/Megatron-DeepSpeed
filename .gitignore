@@ -145,3 +145,12 @@ staticfiles
 
 # tmp files
 *.swp
+
+# data files
+/data
+
+# checkpoint files
+/checkpoints
+
+# log
+log.out

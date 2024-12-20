@@ -68,7 +68,8 @@ def build_tokenizer(args):
 
 
 def _vocab_size_with_padding(orig_vocab_size, args):
-    """Apply the requested rules to change the size of the vocabulary"""
+    """Apply the requested rules to change the size of the vocabulary
+    扩充词表"""
     if args.pad_vocab_size_to is not None:
         if args.pad_vocab_size_to  < orig_vocab_size:
             raise ValueError(
@@ -77,6 +78,7 @@ def _vocab_size_with_padding(orig_vocab_size, args):
             )
 
         if args.make_vocab_size_divisible_by is not None and (args.pad_vocab_size_to % args.make_vocab_size_divisible_by) != 0:
+            # 某些分布式训练框架要求词汇表大小能被某个数整除，默认 128
             raise ValueError(f"{args.pad_vocab_size_to} is not divisible by {args.make_vocab_size_divisible_by}")
 
         after = args.pad_vocab_size_to
@@ -86,6 +88,7 @@ def _vocab_size_with_padding(orig_vocab_size, args):
         multiple = args.make_vocab_size_divisible_by * \
             args.tensor_model_parallel_size
         while (after % multiple) != 0:
+            # 如果不能整除，就逐步增加填充后的词汇表大小，直到它满足整除要求
             after += 1
     if args.rank == 0:
         print(' > padded vocab (size: {}) with {} dummy tokens '

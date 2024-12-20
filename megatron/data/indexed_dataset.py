@@ -99,7 +99,7 @@ dtypes = {
     3: np.int16,
     4: np.int32,
     5: np.int64,
-    6: np.float,
+    6: np.float64,
     7: np.double,
     8: np.uint16
 }
@@ -273,7 +273,7 @@ class IndexedDatasetBuilder(object):
         np.int16: 2,
         np.int32: 4,
         np.int64: 8,
-        np.float: 4,
+        np.float64: 4,
         np.double: 8
     }
 
@@ -605,15 +605,17 @@ class MMapIndexedDatasetBuilder(object):
     def __init__(self, out_file, dtype=np.int64):
         self._data_file = open(out_file, 'wb')
         self._dtype = dtype
-        self._sizes = []
+        self._sizes = []  # 每条数据 tokenize 后的长度
         self._doc_idx = [0]
 
     def add_item(self, tensor):
+        # array([   68,   489,   504, ...,  2724,    13, 50256], shape=(2348,), dtype=uint16)
         np_array = np.array(tensor.numpy(), dtype=self._dtype)
         self._data_file.write(np_array.tobytes(order='C'))
-        self._sizes.append(np_array.size)
+        self._sizes.append(np_array.size)  # 2348
 
     def end_document(self):
+        # len(self._sizes) = jsonl 条数
         self._doc_idx.append(len(self._sizes))
 
     def merge_file_(self, another_file):
