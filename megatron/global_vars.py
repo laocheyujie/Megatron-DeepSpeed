@@ -317,6 +317,7 @@ class Timers:
     """Group of timers."""
 
     def __init__(self):
+        # 用于存储多个计时器。字典的键是计时器的名字，值是 _Timer 对象（代表一个计时器）
         self.timers = {}
 
     def __call__(self, name):

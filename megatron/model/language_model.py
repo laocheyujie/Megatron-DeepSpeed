@@ -136,8 +136,10 @@ class Embedding(MegatronModule):
         # Position embedding (serial).
         self.position_embedding_type = args.position_embedding_type
         if self.position_embedding_type == PositionEmbeddingType.absolute:
+            # max_position_embeddings 决定了可以处理的最大位置数（通常是序列的最大长度）
             max_position_embeddings = args.max_position_embeddings
             assert max_position_embeddings is not None
+            # 将每个位置映射到一个向量
             self.position_embeddings = torch.nn.Embedding(
                 max_position_embeddings, self.hidden_size)
             self._position_embeddings_key = 'position_embeddings'
@@ -152,6 +154,7 @@ class Embedding(MegatronModule):
         # token types and add them as needed.
         self._tokentype_embeddings_key = 'tokentype_embeddings'
         if self.num_tokentypes > 0:
+            # 将不同的 token 类型映射到一个向量
             self.tokentype_embeddings = torch.nn.Embedding(
                 self.num_tokentypes, self.hidden_size)
             # Initialize the token-type embeddings.
@@ -181,17 +184,20 @@ class Embedding(MegatronModule):
 
     def forward(self, input_ids, position_ids, tokentype_ids=None):
         # Embeddings.
+        # 得到 inoput_ids 对应的词向量
         words_embeddings = self.word_embeddings(input_ids)
         embeddings = words_embeddings
 
         if self.position_embedding_type == PositionEmbeddingType.absolute:
             assert self.position_embeddings is not None
+            # 得到 position_ids 对应的位置向量，并加到词向量上
             embeddings = embeddings + self.position_embeddings(position_ids)
         else:
             assert self.position_embeddings is None
 
         if tokentype_ids is not None:
             assert self.tokentype_embeddings is not None
+            # 得到 tokentype_ids 对应的 token 类型向量，并加到词向量上
             embeddings = embeddings + self.tokentype_embeddings(tokentype_ids)
         else:
             assert self.tokentype_embeddings is None
@@ -272,15 +278,17 @@ class EmbeddingPipe(Embedding):
         if not hasattr(self, '_args'):
             self._args = get_args()
 
-        input_ids = inputs[0]
-        position_ids = inputs[1]
+        input_ids = inputs[0]     # 词汇表索引
+        position_ids = inputs[1]  # 位置索引
         if getattr(self._args, 'pretrain_causal_attention', False):
+            # 如果 pretrain_causal_attention 为 True，表示正在进行预训练（通常是语言模型的自回归训练）
+            # 此时不需要使用 attention_mask
             attention_mask = None
         else:
-            attention_mask = inputs[2]
+            attention_mask = inputs[2]  # 注意力掩码
 
         if len(inputs) == 4:
-            tokentype_ids = inputs[3]
+            tokentype_ids = inputs[3]  # 句子索引， 例如 BERT 中的句子A和句子B的标记类型
         else:
             tokentype_ids = None
 

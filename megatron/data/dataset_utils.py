@@ -68,13 +68,15 @@ def get_datasets_weights_and_num_samples(data_prefix,
     # not uniformly distribute the number of samples, we still have
     # samples left to feed to the network.
     prefixes, weights = analyze_data_prefix(data_prefix)
+    # datasets_train_valid_test_num_samples 将是一个列表的列表，每个内部列表对应一个数据集
+    # 包含三个值：训练集、验证集和测试集的样本数
     datasets_train_valid_test_num_samples = []
     for weight in weights:
         datasets_train_valid_test_num_samples.append(
             [int(math.ceil(val * weight * 1.005))
              for val in train_valid_test_num_samples])
 
-
+    # ["dataset1", "dataset2"], [0.8, 0.2], [[804, 161, 241], [201, 40, 60]]
     return prefixes, weights, datasets_train_valid_test_num_samples
 
 

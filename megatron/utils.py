@@ -177,6 +177,7 @@ def get_ltor_masks_and_position_ids(
         att_mask_batch = micro_batch_size
     else:
         att_mask_batch = 1
+    # 下三角矩阵，表示左到右的自回归结构
     attention_mask = torch.tril(torch.ones(
         (att_mask_batch, seq_length, seq_length), device=data.device)).view(
             att_mask_batch, 1, seq_length, seq_length)
@@ -184,9 +185,11 @@ def get_ltor_masks_and_position_ids(
     # Loss mask.
     loss_mask = torch.ones(data.size(), dtype=torch.float, device=data.device)
     if eod_mask_loss:
+        # 将所有结束符（EOD token）位置的 loss_mask 值设置为 0，这样计算损失时就不会考虑这些位置
         loss_mask[data == eod_token] = 0.0
 
     # Position ids.
+    # 初始化位置ID position_ids，它是一个从 0 到 seq_length-1 的递增序列
     position_ids = torch.arange(seq_length, dtype=torch.long,
                                 device=data.device)
     position_ids = position_ids.unsqueeze(0).expand_as(data)
@@ -199,10 +202,12 @@ def get_ltor_masks_and_position_ids(
         for b in range(micro_batch_size):
 
             # Find indecies where EOD token is.
+            # 遍历每个批次 b，并找到该批次中所有 EOD token 的索引
             eod_index = position_ids[b, data[b] == eod_token]
 
             # If the last eod token is not the last token of the sequence, we suppose that there is a partial document
             # We treat this case as if we add an eod token at the end of the sequence.
+            # 如果最后一个 token 不是 EOD token，则假设文档没有完整结束，添加一个虚拟的 EOD token
             if data[b][-1] != eod_token:
                 eod_index = torch.cat(
                     (eod_index, torch.tensor([len(data[b])], dtype=eod_index.dtype, device=eod_index.device))

@@ -132,6 +132,9 @@ def pretrain(train_valid_test_dataset_provider,
             args.pipeline_model_parallel_size >= 1:
             from deepspeed.runtime.data_pipeline.curriculum_scheduler \
                 import CurriculumScheduler
+            # 在训练过程中动态调整训练数据或任务难度，以实现更高效的模型训练
+            # 随着训练的进行，逐渐增加输入数据的复杂性或长度
+            # 初期让模型专注于较简单的任务，后期逐渐增加任务难度，提高模型泛化能力
             args.curriculum_scheduler = CurriculumScheduler( \
                 args.deepspeed_configuration["curriculum_learning"])
 

@@ -48,6 +48,7 @@ def model_provider(pre_process=True, post_process=True):
 
     args = get_args()
 
+    # 核心是 mpu,  mpu (``object``, optional): A model parallelism unit object that implements get_{model,data}_parallel_{rank,group,world_size}.
     with deepspeed.zero.Init(data_parallel_group=mpu.get_data_parallel_group(),
                              remote_device=None if args.remote_device == 'none' else args.remote_device,
                              config_dict_or_path=args.deepspeed_config,
@@ -172,6 +173,9 @@ def forward_step(data_iterator, model):
     output_tensor = model(tokens, position_ids, attention_mask,
                           labels=labels)
     if args.curriculum_learning and args.curriculum_seqlen < args.seq_length:
+        # 课程学习
+        # 在训练初期，只用较短的序列（curriculum_seqlen），使模型更容易学习
+        # 随着模型性能的提升，逐渐增加序列长度，增加任务的难度
         loss_mask = loss_mask[:, :args.curriculum_seqlen].contiguous()
 
     return output_tensor, partial(loss_func, loss_mask)
@@ -183,8 +187,8 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
     train_ds, valid_ds, test_ds = None, None, None
 
     print_rank_0('> building train, validation, and test datasets for GPT ...')
+    
     # Option 1 of data loading using --data-path
-
     if args.data_path:
         train_ds, valid_ds, test_ds = build_train_valid_test_datasets(
             data_prefix=args.data_path,
@@ -224,6 +228,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
         raise NotImplementedError("No dataloading argument passed")
 
     print_rank_0("> finished creating GPT datasets ...")
+    # 返回的是 GPTDataset 类实例
     return train_ds, valid_ds, test_ds
 
 @record

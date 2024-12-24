@@ -207,10 +207,12 @@ class GPTModelPipe(PipelineModule,MegatronModule):
         args = get_args()
         self.parallel_output = parallel_output
 
+        # 使用正态分布初始化方法
         init_method = init_method_normal(args.init_method_std)
 
         self.specs = []
 
+        # NOTE: 类型转换
         def _to_float16(inputs):
             if args.fp16:
                 return fp32_to_float16(inputs, lambda v: v.half())
@@ -231,13 +233,16 @@ class GPTModelPipe(PipelineModule,MegatronModule):
                                         num_tokentypes=num_tokentypes,
                                         tied_weight_attr='word_embeddings_weight'))
 
+        # 残差连接
         if args.fp32_residual_connection:
+            # 使用 fp32
             if getattr(args, 'pretrain_causal_attention', False):
                 self.specs.append(lambda x: x.transpose(0, 1).contiguous().float())
             else:
                 # EmbeddingPipe returns attention mask as well
                 self.specs.append(lambda x: (x[0].transpose(0, 1).contiguous().float(), *x[1:]))
         else:
+            # 不使用 fp32
             if getattr(args, 'pretrain_causal_attention', False):
                 self.specs.append(lambda x: x.transpose(0, 1).contiguous())
             else:

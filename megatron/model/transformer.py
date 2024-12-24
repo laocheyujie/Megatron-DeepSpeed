@@ -526,6 +526,7 @@ class ParallelTransformerLayer(MegatronModule):
         # different nn.functional routines to account for varying
         # dropout semantics during training and inference phases.
         if self.bias_dropout_fusion:
+            # dropout(x + bias) + residual
             if self.training:
                 bias_dropout_add_func = bias_dropout_add_fused_train
             else:

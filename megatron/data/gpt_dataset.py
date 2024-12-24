@@ -41,7 +41,7 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                                 seq_length, seed, skip_warmup)
     # Blending dataset.
     else:
-
+        # 如果是多个数据集，则先获取每个数据集对应的权重以及训练集、验证集、测试集的数量
         output = get_datasets_weights_and_num_samples(data_prefix,
                                                     train_valid_test_num_samples)
         prefixes, weights, datasets_train_valid_test_num_samples = output
@@ -69,6 +69,7 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
         all_test_datasets = BlendableDataset(test_datasets, weights) \
                             if test_datasets else None
 
+    # 返回的是 GPTDataset 类实例
     return all_train_datasets, all_valid_datasets, all_test_datasets
 
 
