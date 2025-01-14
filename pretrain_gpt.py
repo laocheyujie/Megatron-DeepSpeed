@@ -48,7 +48,7 @@ def model_provider(pre_process=True, post_process=True):
 
     args = get_args()
 
-    # 核心是 mpu,  mpu (``object``, optional): A model parallelism unit object that implements get_{model,data}_parallel_{rank,group,world_size}.
+    # NOTE: 核心是 mpu,  mpu (``object``, optional): A model parallelism unit object that implements get_{model,data}_parallel_{rank,group,world_size}.
     with deepspeed.zero.Init(data_parallel_group=mpu.get_data_parallel_group(),
                              remote_device=None if args.remote_device == 'none' else args.remote_device,
                              config_dict_or_path=args.deepspeed_config,
@@ -93,6 +93,7 @@ def get_batch(data_iterator):
 
     # Unpack.
     tokens_ = data_b['text'].long()
+    # tokens_.shape = (batch_size, seq_length+1)
     labels = tokens_[:, 1:].contiguous()
     tokens = tokens_[:, :-1].contiguous()
 
@@ -106,7 +107,34 @@ def get_batch(data_iterator):
         prefix_indices=None,
         loss_on_targets_only=args.loss_on_targets_only
     )
-
+    '''
+    attention_mask
+    tensor([[[[False,  True,  True,  ...,  True,  True,  True],
+            [False, False,  True,  ...,  True,  True,  True],
+            [False, False, False,  ...,  True,  True,  True],
+            ...,
+            [False, False, False,  ..., False,  True,  True],
+            [False, False, False,  ..., False, False,  True],
+            [False, False, False,  ..., False, False, False]]]], device='cuda:0')
+            
+    loss_mask
+    tensor([[1., 1., 1.,  ..., 1., 1., 1.],
+            [1., 1., 1.,  ..., 1., 1., 1.],
+            [1., 1., 1.,  ..., 1., 1., 1.],
+            ...,
+            [1., 1., 1.,  ..., 1., 1., 1.],
+            [1., 1., 1.,  ..., 1., 1., 1.],
+            [1., 1., 1.,  ..., 1., 1., 1.]], device='cuda:0')
+            
+    position_ids
+    tensor([[   0,    1,    2,  ..., 1021, 1022, 1023],
+            [   0,    1,    2,  ..., 1021, 1022, 1023],
+            [   0,    1,    2,  ..., 1021, 1022, 1023],
+            ...,
+            [   0,    1,    2,  ..., 1021, 1022, 1023],
+            [   0,    1,    2,  ..., 1021, 1022, 1023],
+            [   0,    1,    2,  ..., 1021, 1022, 1023]], device='cuda:0')
+    '''
     return tokens, labels, loss_mask, attention_mask, position_ids
 
 

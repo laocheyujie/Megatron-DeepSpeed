@@ -1,0 +1,63 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python 调试程序: 当前文件",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "torch.distributed.launch",
+            // "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env":{
+                "PYTHONPATH": "${workspaceFolder}",
+                "MASTER_ADDR": "localhost",
+                "MASTER_PORT": "6000",
+                "WORLD_SIZE": "1",
+                "RANK": "0"
+            },
+            "args": [
+                "--nproc_per_node=8",
+                "--nnodes=1",
+                "--node_rank=0",
+                "--master_addr=localhost",
+                "--master_port=6000",
+                "pretrain_gpt.py",
+                "--tensor-model-parallel-size", "2",
+                "--pipeline-model-parallel-size", "2",
+                "--num-layers", "24",
+                "--hidden-size", "1024",
+                "--num-attention-heads", "16",
+                "--micro-batch-size", "8",
+                "--global-batch-size", "16",
+                "--seq-length", "1024",
+                "--max-position-embeddings", "1024",
+                "--train-iters", "5100",
+                "--lr-decay-iters", "320000",
+                "--save", "checkpoints/gpt2",
+                "--load", "checkpoints/gpt2",
+                "--data-path", "data/meg-gpt2_text_document",
+                "--vocab-file", "data/gpt2-vocab.json",
+                "--merge-file", "data/gpt2-merges.txt",
+                "--data-impl", "mmap",
+                "--split", "949,50,1",
+                "--distributed-backend", "nccl",
+                "--lr", "0.00015",
+                "--lr-decay-style", "cosine",
+                "--min-lr", "1.0e-5",
+                "--weight-decay", "1e-2",
+                "--clip-grad", "1.0",
+                "--lr-warmup-fraction", ".01",
+                "--checkpoint-activations",
+                "--log-interval", "10",
+                "--save-interval", "500",
+                "--eval-interval", "100",
+                "--eval-iters", "10",
+                "--fp16"
+            ]
+        }
+    ]
+}

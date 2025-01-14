@@ -33,6 +33,7 @@ cd Megatron-DeepSpeed
 pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+pip install nvitop
 
 # 如果需要单独安装 DeepSpeed 的话
 git clone https://github.com/microsoft/DeepSpeed.git
@@ -71,7 +72,7 @@ vim pretrain_gpt2.sh
 
 # Runs the "345M" parameter model
 
-GPUS_PER_NODE=1
+GPUS_PER_NODE=8
 # Change for multinode config
 MASTER_ADDR=localhost
 MASTER_PORT=6000
